@@ -44,11 +44,13 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 
 		private async Task Client_MessageReceived(SocketMessage messageParam)
 		{
-			// Don't process the command if it was a system message
+			// Don't process the message if it was a system message
 			if (messageParam is not SocketUserMessage message)
-			{
 				return;
-			}
+			// Don't process the message if it was sent by a bot
+			if (message.Author.IsBot)
+				return;
+
 			var context = new SocketCommandContext(this.client, message);
 
 			// Parse the text of the message, write the words in it to the WordStatistic table, write the sentences into the Sentence table
