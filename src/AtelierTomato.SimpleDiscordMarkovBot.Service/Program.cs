@@ -1,4 +1,8 @@
 ﻿using System.Diagnostics;
+using AtelierTomato.Markov.Core;
+using AtelierTomato.Markov.Service.Discord;
+using AtelierTomato.Markov.Storage;
+using AtelierTomato.Markov.Storage.Sqlite;
 using AtelierTomato.SimpleDiscordMarkovBot.Core;
 using AtelierTomato.SimpleDiscordMarkovBot.Service;
 using Discord;
@@ -25,7 +29,7 @@ IHost host = Host.CreateDefaultBuilder(args)
 			builder.AddJournal(options => options.SyslogIdentifier = hostContext.Configuration["SyslogIdentifier"]);
 		}
 	})
-	.ConfigureServices(services =>
+	.ConfigureServices((hostContext, services) =>
 	{
 		services.AddHostedService<Worker>();
 
@@ -37,7 +41,16 @@ IHost host = Host.CreateDefaultBuilder(args)
 		var client = new DiscordSocketClient(config: discordSocketConfig);
 
 		services.AddSingleton(client);
-		services.AddSingleton<DiscordEventDispatcher>();
+		services.AddSingleton<DiscordEventDispatcher>()
+				.AddSingleton<DiscordSentenceParser>()
+				.AddSingleton<ISentenceAccess, SqliteSentenceAccess>()
+				.AddSingleton<IWordStatisticAccess, SqliteWordStatisticAccess>();
+		services.AddOptions<SentenceParserOptions>()
+				.Bind(hostContext.Configuration.GetSection("SentenceParser"));
+		services.AddOptions<DiscordSentenceParserOptions>()
+				.Bind(hostContext.Configuration.GetSection("DiscordSentenceParser"));
+		services.AddOptions<SqliteAccessOptions>()
+				.Bind(hostContext.Configuration.GetSection("SqliteAccess"));
 	})
 	.Build();
 
