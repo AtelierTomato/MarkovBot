@@ -53,33 +53,37 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 
 			var context = new SocketCommandContext(this.client, message);
 
-			// Parse the text of the message, write the words in it to the WordStatistic table, write the sentences into the Sentence table
-			IEnumerable<string> parsedMessage = sentenceParser.ParseIntoSentenceTexts(message.Content, message.Tags);
-			foreach (string parsedText in parsedMessage)
+			// If there are no values in RestrictToIds, or the user's ID is in RestrictToIds, continue
+			if (options.RestrictToIds.Count == 0 || options.RestrictToIds.Contains(message.Author.Id))
 			{
-				await wordStatisticAccess.WriteWordStatisticsFromString(parsedText);
-			}
-			IEnumerable<Sentence> sentences = await DiscordSentenceBuilder.Build(context.Guild, context.Channel, message.Id, context.User.Id, message.CreatedAt, parsedMessage);
-			await sentenceAccess.WriteSentenceRange(sentences);
+				// Parse the text of the message, write the words in it to the WordStatistic table, write the sentences into the Sentence table
+				IEnumerable<string> parsedMessage = sentenceParser.ParseIntoSentenceTexts(message.Content, message.Tags);
+				foreach (string parsedText in parsedMessage)
+				{
+					await wordStatisticAccess.WriteWordStatisticsFromString(parsedText);
+				}
+				IEnumerable<Sentence> sentences = await DiscordSentenceBuilder.Build(context.Guild, context.Channel, message.Id, context.User.Id, message.CreatedAt, parsedMessage);
+				await sentenceAccess.WriteSentenceRange(sentences);
 
-			// Respond with a markov-generated sentence if a user says the bot's name or replies to the bot.
-			if (message.Content.Contains(options.BotName, StringComparison.InvariantCultureIgnoreCase) ||
-				(message.ReferencedMessage is not null && (message.ReferencedMessage.Author.Id == client.CurrentUser.Id)))
-			{
-				using (context.Channel.EnterTypingState()) _ =
-					await context.Channel.SendMessageAsync
-					(
-						sentenceRenderer.Render
+				// Respond with a markov-generated sentence if a user says the bot's name or replies to the bot.
+				if (message.Content.Contains(options.BotName, StringComparison.InvariantCultureIgnoreCase) ||
+					(message.ReferencedMessage is not null && (message.ReferencedMessage.Author.Id == client.CurrentUser.Id)))
+				{
+					using (context.Channel.EnterTypingState()) _ =
+						await context.Channel.SendMessageAsync
 						(
-							await markovChain.Generate
+							sentenceRenderer.Render
 							(
-								new SentenceFilter(null, null),
-								await keywordProvider.Find(message.Content)
-							),
-							context.Guild.Emotes,
-							client.Guilds.SelectMany(g => g.Emotes)
-						)
-					);
+								await markovChain.Generate
+								(
+									new SentenceFilter(null, null),
+									await keywordProvider.Find(message.Content)
+								),
+								context.Guild.Emotes,
+								client.Guilds.SelectMany(g => g.Emotes)
+							)
+						);
+				}
 			}
 		}
 	}
