@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using AtelierTomato.Markov.Core;
+using AtelierTomato.Markov.Core.Generation;
 using AtelierTomato.Markov.Service.Discord;
 using AtelierTomato.Markov.Storage;
 using AtelierTomato.Markov.Storage.Sqlite;
@@ -44,13 +45,22 @@ IHost host = Host.CreateDefaultBuilder(args)
 		services.AddSingleton<DiscordEventDispatcher>()
 				.AddSingleton<DiscordSentenceParser>()
 				.AddSingleton<ISentenceAccess, SqliteSentenceAccess>()
-				.AddSingleton<IWordStatisticAccess, SqliteWordStatisticAccess>();
+				.AddSingleton<IWordStatisticAccess, SqliteWordStatisticAccess>()
+				.AddSingleton<MarkovChain>()
+				.AddSingleton<KeywordProvider>()
+				.AddSingleton<DiscordSentenceRenderer>();
 		services.AddOptions<SentenceParserOptions>()
 				.Bind(hostContext.Configuration.GetSection("SentenceParser"));
 		services.AddOptions<DiscordSentenceParserOptions>()
 				.Bind(hostContext.Configuration.GetSection("DiscordSentenceParser"));
 		services.AddOptions<SqliteAccessOptions>()
 				.Bind(hostContext.Configuration.GetSection("SqliteAccess"));
+		services.AddOptions<DiscordBotOptions>()
+				.Bind(hostContext.Configuration.GetSection("DiscordBot"));
+		services.AddOptions<MarkovChainOptions>()
+				.Bind(hostContext.Configuration.GetSection("MarkovChain"));
+		services.AddOptions<KeywordOptions>()
+				.Bind(hostContext.Configuration.GetSection("Keyword"));
 	})
 	.Build();
 
