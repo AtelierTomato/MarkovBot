@@ -55,9 +55,3 @@ IHost host = Host.CreateDefaultBuilder(args)
 	.Build();
 
 await host.RunAsync();
-
-//var builder = Host.CreateApplicationBuilder(args);
-//builder.Services.AddHostedService<Worker>();
-
-//var host = builder.Build();
-//host.Run();
