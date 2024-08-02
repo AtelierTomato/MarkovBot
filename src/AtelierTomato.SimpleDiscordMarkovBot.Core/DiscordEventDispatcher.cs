@@ -121,21 +121,21 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 				var message = await cachedMessage.GetOrDownloadAsync();
 				var context = new CommandContext(client, message);
 				var currentEmojis = context.Guild.Emotes;
-				var allEmojis = client.Guilds.SelectMany(g => g.Emotes);
+				var otherAvailableEmojis = client.Guilds.Where(g => g.Id != context.Guild.Id).SelectMany(g => g.Emotes);
 				IEnumerable<IEmote> writeEmojis = [], deleteEmojis = [], failEmojis = [];
 				if (options.WriteDiscordEmojiNames.Count is not 0)
 				{
-					writeEmojis = options.WriteDiscordEmojiNames.Select(n => ParseEmoteFromName(n, currentEmojis, allEmojis));
+					writeEmojis = options.WriteDiscordEmojiNames.SelectMany(n => ParseEmotesFromName(n, currentEmojis, otherAvailableEmojis));
 				}
 				writeEmojis = writeEmojis.Concat((IEnumerable<IEmote>)options.WriteEmojis.Select(e => new Emoji(e)));
 				if (options.DeleteDiscordEmojiNames.Count is not 0)
 				{
-					deleteEmojis = options.DeleteDiscordEmojiNames.Select(n => ParseEmoteFromName(n, currentEmojis, allEmojis));
+					deleteEmojis = options.DeleteDiscordEmojiNames.SelectMany(n => ParseEmotesFromName(n, currentEmojis, otherAvailableEmojis));
 				}
 				deleteEmojis = deleteEmojis.Concat((IEnumerable<IEmote>)options.DeleteEmojis.Select(e => new Emoji(e)));
 				if (options.FailDiscordEmojiName is not "")
 				{
-					failEmojis = failEmojis.Append(ParseEmoteFromName(options.FailDiscordEmojiName, currentEmojis, allEmojis));
+					failEmojis = failEmojis.Append(ParseEmotesFromName(options.FailDiscordEmojiName, currentEmojis, otherAvailableEmojis).First());
 				}
 				failEmojis = failEmojis.Append(new Emoji(options.FailEmoji));
 
@@ -177,24 +177,17 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 			}
 		}
 
-		private Emote ParseEmoteFromName(string n, IEnumerable<Emote> currentEmojis, IEnumerable<Emote> allEmojis)
+		private static IEnumerable<Emote> ParseEmotesFromName(string n, IEnumerable<Emote> currentEmojis, IEnumerable<Emote> otherAvailableEmojis)
 		{
-			Emote? emoji = currentEmojis.FirstOrDefault(e => e.Name == n);
-			if (emoji is not null)
+			IEnumerable<Emote> emoji = currentEmojis.Where(e => e.Name == n);
+			emoji = emoji.Concat(otherAvailableEmojis.Where(e => e.Name == n));
+			if (emoji.Any())
 			{
 				return emoji;
 			}
 			else
 			{
-				emoji = allEmojis.FirstOrDefault(e => e.Name == n);
-				if (emoji is not null)
-				{
-					return emoji;
-				}
-				else
-				{
-					throw new InvalidOperationException($"Emoji with name '{n}' not found.");
-				}
+				throw new InvalidOperationException($"Emoji with name '{n}' not found.");
 			}
 		}
 	}
