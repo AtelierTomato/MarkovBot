@@ -102,11 +102,26 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 			// If the bot is in ReactMode, continue.
 			if (options.ReactMode)
 			{
-				IEnumerable<IEmote> writeEmojis = options.WriteEmojis.Select(e => new Emoji(e));
-				IEnumerable<IEmote> deleteEmojis = options.DeleteEmojis.Select(e => new Emoji(e));
-				IEnumerable<IEmote> failEmojis = [new Emoji(options.FailEmoji)];
 				var message = await cachedMessage.GetOrDownloadAsync();
 				var context = new CommandContext(client, message);
+				var currentEmojis = context.Guild.Emotes;
+				var allEmojis = client.Guilds.SelectMany(g => g.Emotes);
+				IEnumerable<IEmote> writeEmojis = [], deleteEmojis = [], failEmojis = [];
+				if (options.WriteDiscordEmojiNames.Count is not 0)
+				{
+					writeEmojis = options.WriteDiscordEmojiNames.Select(n => ParseEmoteFromName(n, currentEmojis, allEmojis));
+				}
+				writeEmojis = writeEmojis.Concat((IEnumerable<IEmote>)options.WriteEmojis.Select(e => new Emoji(e)));
+				if (options.DeleteDiscordEmojiNames.Count is not 0)
+				{
+					deleteEmojis = options.DeleteDiscordEmojiNames.Select(n => ParseEmoteFromName(n, currentEmojis, allEmojis));
+				}
+				deleteEmojis = deleteEmojis.Concat((IEnumerable<IEmote>)options.DeleteEmojis.Select(e => new Emoji(e)));
+				if (options.FailDiscordEmojiName is not "")
+				{
+					failEmojis = failEmojis.Append(ParseEmoteFromName(options.FailDiscordEmojiName, currentEmojis, allEmojis));
+				}
+				failEmojis = failEmojis.Append(new Emoji(options.FailEmoji));
 
 				if (message is null) return;
 
@@ -137,6 +152,27 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 						await sentenceAccess.DeleteSentenceRange(new SentenceFilter(await DiscordObjectOIDBuilder.Build(context.Guild, context.Channel, context.Message.Id), null));
 						await message.AddReactionAsync(reaction.Emote);
 					}
+				}
+			}
+		}
+
+		private Emote ParseEmoteFromName(string n, IEnumerable<Emote> currentEmojis, IEnumerable<Emote> allEmojis)
+		{
+			Emote? emoji = currentEmojis.FirstOrDefault(e => e.Name == n);
+			if (emoji is not null)
+			{
+				return emoji;
+			}
+			else
+			{
+				emoji = allEmojis.FirstOrDefault(e => e.Name == n);
+				if (emoji is not null)
+				{
+					return emoji;
+				}
+				else
+				{
+					throw new InvalidOperationException($"Emoji with name '{n}' not found.");
 				}
 			}
 		}
