@@ -55,8 +55,8 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 
 			var context = new SocketCommandContext(this.client, message);
 
-			// If the bot is in MessageReceivedMode, continue
-			if (options.MessageReceivedMode)
+			// If the bot is in MessageReceivedMode or WordStatisticsOnMessageReceivedMode, continue
+			if (options.MessageReceivedMode || options.WordStatisticsOnMessageReceivedMode)
 			{
 				// If there are no values in RestrictToIds, or the user's ID is in RestrictToIds, continue
 				if (options.RestrictToIds.Count == 0 || options.RestrictToIds.Contains(message.Author.Id))
@@ -65,12 +65,17 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 					IEnumerable<string> parsedMessage = sentenceParser.ParseIntoSentenceTexts(message.Content, message.Tags);
 					if (parsedMessage.Any())
 					{
+						// Either way, we're writing WordStatistics to the database
 						foreach (string parsedText in parsedMessage)
 						{
 							await wordStatisticAccess.WriteWordStatisticsFromString(parsedText);
 						}
-						IEnumerable<Sentence> sentences = await DiscordSentenceBuilder.Build(context.Guild, context.Channel, message.Id, context.User.Id, message.CreatedAt, parsedMessage);
-						await sentenceAccess.WriteSentenceRange(sentences);
+						// Only generate and write Sentences to the database if we're in MessageReceivedMode
+						if (options.MessageReceivedMode)
+						{
+							IEnumerable<Sentence> sentences = await DiscordSentenceBuilder.Build(context.Guild, context.Channel, message.Id, context.User.Id, message.CreatedAt, parsedMessage);
+							await sentenceAccess.WriteSentenceRange(sentences);
+						}
 					}
 				}
 			}
@@ -99,6 +104,9 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 
 		private async Task Client_ReactionAdded(Cacheable<IUserMessage, ulong> cachedMessage, Cacheable<IMessageChannel, ulong> originChannel, SocketReaction reaction)
 		{
+			// Don't process the reaction if it was sent by a bot
+			if (reaction.User.GetValueOrDefault().IsBot)
+				return;
 			// If the bot is in ReactMode, continue.
 			if (options.ReactMode)
 			{
