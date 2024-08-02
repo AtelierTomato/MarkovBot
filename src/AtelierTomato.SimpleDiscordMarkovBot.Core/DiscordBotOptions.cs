@@ -1,4 +1,6 @@
-﻿namespace AtelierTomato.SimpleDiscordMarkovBot.Core
+﻿using Discord;
+
+namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 {
 	public class DiscordBotOptions
 	{
@@ -13,5 +15,7 @@
 		public List<string> DeleteDiscordEmojiNames { get; set; } = [];
 		public string FailEmoji { get; set; } = "\uD83D\uDEAB";
 		public string FailDiscordEmojiName { get; set; } = "";
+		public string ActivityString { get; set; } = "Placeholder!";
+		public ActivityType ActivityType { get; set; } = ActivityType.Playing;
 	}
 }

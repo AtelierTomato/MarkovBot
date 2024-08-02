@@ -41,7 +41,7 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 
 		private async Task Client_Ready()
 		{
-			await this.client.SetGameAsync("Placeholder!", type: Discord.ActivityType.Competing);
+			await this.client.SetGameAsync(options.ActivityString, type: options.ActivityType);
 		}
 
 		private async Task Client_MessageReceived(SocketMessage messageParam)
