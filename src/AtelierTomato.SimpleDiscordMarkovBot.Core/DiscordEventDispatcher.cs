@@ -84,9 +84,9 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 			if (message.Content.Contains(options.BotName, StringComparison.InvariantCultureIgnoreCase) ||
 				(message.ReferencedMessage is not null && (message.ReferencedMessage.Author.Id == client.CurrentUser.Id)))
 			{
-				using (context.Channel.EnterTypingState()) _ =
-					await context.Channel.SendMessageAsync
-					(
+				using (context.Channel.EnterTypingState())
+				{
+					string generatedSentence =
 						sentenceRenderer.Render
 						(
 							await markovChain.Generate
@@ -96,8 +96,16 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 							),
 							context.Guild.Emotes,
 							client.Guilds.SelectMany(g => g.Emotes)
-						)
-					);
+						);
+					if (string.IsNullOrEmpty(generatedSentence))
+					{
+						await context.Channel.SendMessageAsync(options.EmptyMarkovReturn);
+					}
+					else
+					{
+						await context.Channel.SendMessageAsync(generatedSentence);
+					}
+				}
 			}
 
 		}

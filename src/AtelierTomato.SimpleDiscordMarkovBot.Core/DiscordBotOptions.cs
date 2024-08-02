@@ -4,7 +4,7 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 {
 	public class DiscordBotOptions
 	{
-		public string BotName { get; set; } = "devbot";
+		public string BotName { get; set; } = "SET THIS";
 		public List<ulong> RestrictToIds { get; set; } = [];
 		public bool MessageReceivedMode { get; set; } = false;
 		public bool ReactMode { get; set; } = true;
@@ -17,5 +17,6 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 		public string FailDiscordEmojiName { get; set; } = "";
 		public string ActivityString { get; set; } = "Placeholder!";
 		public ActivityType ActivityType { get; set; } = ActivityType.Playing;
+		public string EmptyMarkovReturn { get; set; } = "The Markov chain failed to generate anything. This is likely because either the database or the specific query handed to it resulted in 0 Sentences.";
 	}
 }
