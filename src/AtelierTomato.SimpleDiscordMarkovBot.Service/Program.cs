@@ -49,14 +49,14 @@ IHost host = Host.CreateDefaultBuilder(args)
 				.AddSingleton<MarkovChain>()
 				.AddSingleton<KeywordProvider>()
 				.AddSingleton<DiscordSentenceRenderer>();
+		services.AddOptions<DiscordBotOptions>()
+				.Bind(hostContext.Configuration.GetSection("DiscordBot"));
 		services.AddOptions<SentenceParserOptions>()
 				.Bind(hostContext.Configuration.GetSection("SentenceParser"));
 		services.AddOptions<DiscordSentenceParserOptions>()
 				.Bind(hostContext.Configuration.GetSection("DiscordSentenceParser"));
 		services.AddOptions<SqliteAccessOptions>()
 				.Bind(hostContext.Configuration.GetSection("SqliteAccess"));
-		services.AddOptions<DiscordBotOptions>()
-				.Bind(hostContext.Configuration.GetSection("DiscordBot"));
 		services.AddOptions<MarkovChainOptions>()
 				.Bind(hostContext.Configuration.GetSection("MarkovChain"));
 		services.AddOptions<KeywordOptions>()
