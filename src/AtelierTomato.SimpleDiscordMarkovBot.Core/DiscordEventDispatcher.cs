@@ -2,6 +2,7 @@
 using AtelierTomato.Markov.Model;
 using AtelierTomato.Markov.Service.Discord;
 using AtelierTomato.Markov.Storage;
+using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
@@ -35,6 +36,7 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 			this.client.Ready += this.Client_Ready;
 
 			this.client.MessageReceived += this.Client_MessageReceived;
+			this.client.ReactionAdded += this.Client_ReactionAdded;
 		}
 
 		private async Task Client_Ready()
@@ -53,36 +55,88 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 
 			var context = new SocketCommandContext(this.client, message);
 
-			// If there are no values in RestrictToIds, or the user's ID is in RestrictToIds, continue
-			if (options.RestrictToIds.Count == 0 || options.RestrictToIds.Contains(message.Author.Id))
+			// If the bot is in MessageReceivedMode, continue
+			if (options.MessageReceivedMode)
 			{
-				// Parse the text of the message, write the words in it to the WordStatistic table, write the sentences into the Sentence table
-				IEnumerable<string> parsedMessage = sentenceParser.ParseIntoSentenceTexts(message.Content, message.Tags);
-				foreach (string parsedText in parsedMessage)
+				// If there are no values in RestrictToIds, or the user's ID is in RestrictToIds, continue
+				if (options.RestrictToIds.Count == 0 || options.RestrictToIds.Contains(message.Author.Id))
 				{
-					await wordStatisticAccess.WriteWordStatisticsFromString(parsedText);
+					// Parse the text of the message, write the words in it to the WordStatistic table, write the sentences into the Sentence table
+					IEnumerable<string> parsedMessage = sentenceParser.ParseIntoSentenceTexts(message.Content, message.Tags);
+					if (parsedMessage.Any())
+					{
+						foreach (string parsedText in parsedMessage)
+						{
+							await wordStatisticAccess.WriteWordStatisticsFromString(parsedText);
+						}
+						IEnumerable<Sentence> sentences = await DiscordSentenceBuilder.Build(context.Guild, context.Channel, message.Id, context.User.Id, message.CreatedAt, parsedMessage);
+						await sentenceAccess.WriteSentenceRange(sentences);
+					}
 				}
-				IEnumerable<Sentence> sentences = await DiscordSentenceBuilder.Build(context.Guild, context.Channel, message.Id, context.User.Id, message.CreatedAt, parsedMessage);
-				await sentenceAccess.WriteSentenceRange(sentences);
+			}
 
-				// Respond with a markov-generated sentence if a user says the bot's name or replies to the bot.
-				if (message.Content.Contains(options.BotName, StringComparison.InvariantCultureIgnoreCase) ||
-					(message.ReferencedMessage is not null && (message.ReferencedMessage.Author.Id == client.CurrentUser.Id)))
-				{
-					using (context.Channel.EnterTypingState()) _ =
-						await context.Channel.SendMessageAsync
+			// Respond with a markov-generated sentence if a user says the bot's name or replies to the bot.
+			if (message.Content.Contains(options.BotName, StringComparison.InvariantCultureIgnoreCase) ||
+				(message.ReferencedMessage is not null && (message.ReferencedMessage.Author.Id == client.CurrentUser.Id)))
+			{
+				using (context.Channel.EnterTypingState()) _ =
+					await context.Channel.SendMessageAsync
+					(
+						sentenceRenderer.Render
 						(
-							sentenceRenderer.Render
+							await markovChain.Generate
 							(
-								await markovChain.Generate
-								(
-									new SentenceFilter(null, null),
-									await keywordProvider.Find(message.Content)
-								),
-								context.Guild.Emotes,
-								client.Guilds.SelectMany(g => g.Emotes)
-							)
-						);
+								new SentenceFilter(null, null),
+								await keywordProvider.Find(message.Content)
+							),
+							context.Guild.Emotes,
+							client.Guilds.SelectMany(g => g.Emotes)
+						)
+					);
+			}
+
+		}
+
+		private async Task Client_ReactionAdded(Cacheable<IUserMessage, ulong> cachedMessage, Cacheable<IMessageChannel, ulong> originChannel, SocketReaction reaction)
+		{
+			// If the bot is in ReactMode, continue.
+			if (options.ReactMode)
+			{
+				IEnumerable<IEmote> writeEmojis = options.WriteEmojis.Select(e => new Emoji(e));
+				IEnumerable<IEmote> deleteEmojis = options.DeleteEmojis.Select(e => new Emoji(e));
+				IEnumerable<IEmote> failEmojis = [new Emoji(options.FailEmoji)];
+				var message = await cachedMessage.GetOrDownloadAsync();
+				var context = new CommandContext(client, message);
+
+				if (message is null) return;
+
+				if (options.RestrictToIds.Count == 0 || (options.RestrictToIds.Contains(message.Author.Id) && options.RestrictToIds.Contains(reaction.UserId)))
+				{
+					if (writeEmojis.Contains(reaction.Emote))
+					{
+						// Parse the text of the message, write the words in it to the WordStatistic table, write the sentences into the Sentence table
+						IEnumerable<string> parsedMessage = sentenceParser.ParseIntoSentenceTexts(message.Content, message.Tags);
+						if (parsedMessage.Any())
+						{
+							foreach (string parsedText in parsedMessage)
+							{
+								await wordStatisticAccess.WriteWordStatisticsFromString(parsedText);
+							}
+							IEnumerable<Sentence> sentences = await DiscordSentenceBuilder.Build(context.Guild, context.Channel, message.Id, context.User.Id, message.CreatedAt, parsedMessage);
+							await sentenceAccess.WriteSentenceRange(sentences);
+							await message.AddReactionAsync(reaction.Emote);
+						}
+						else
+						{
+							await message.AddReactionAsync(failEmojis.First());
+						}
+					}
+					else if (deleteEmojis.Contains(reaction.Emote))
+					{
+						// Delete all sentences made from this message from the database
+						await sentenceAccess.DeleteSentenceRange(new SentenceFilter(await DiscordObjectOIDBuilder.Build(context.Guild, context.Channel, context.Message.Id), null));
+						await message.AddReactionAsync(reaction.Emote);
+					}
 				}
 			}
 		}
