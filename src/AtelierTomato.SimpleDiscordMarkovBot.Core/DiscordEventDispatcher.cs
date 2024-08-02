@@ -161,6 +161,11 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 						await message.AddReactionAsync(reaction.Emote);
 					}
 				}
+				else if (writeEmojis.Contains(reaction.Emote) || deleteEmojis.Contains(reaction.Emote))
+				{
+					await message.AddReactionAsync(failEmojis.First());
+				}
+
 			}
 		}
 
