@@ -56,28 +56,15 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 			var context = new SocketCommandContext(this.client, message);
 
 			// MESSAGE GATHERING
-			if ((options.MessageReceivedMode || options.WordStatisticsOnMessageReceivedMode)                // If we are in MessageReceivedMode or WordStatisticsOnMessageReceivedMode
-				&&                                                                                          // AND
-				(options.RestrictToIds.Count == 0 || options.RestrictToIds.Contains(message.Author.Id)))    // If there are no values in RestrictToIds, or the user's ID is in RestrictToIds
+			bool gatherSentences = false;
+			bool gatherWordStatistics = false;
+			// If there are no values in RestrictToIds, or the user's ID is in RestrictToIds
+			if (options.RestrictToIds.Count == 0 || options.RestrictToIds.Contains(message.Author.Id))
 			{
-				// Parse the text of the message, write the words in it to the WordStatistic table, write the sentences into the Sentence table
-				IEnumerable<string> parsedMessage = sentenceParser.ParseIntoSentenceTexts(message.Content, message.Tags);
-				if (parsedMessage.Any())
-				{
-					// Either way, we're writing WordStatistics to the database
-					foreach (string parsedText in parsedMessage)
-					{
-						await wordStatisticAccess.WriteWordStatisticsFromString(parsedText);
-					}
-					// Only generate and write Sentences to the database if we're in MessageReceivedMode
-					if (options.MessageReceivedMode)
-					{
-						IEnumerable<Sentence> sentences = await DiscordSentenceBuilder.Build(context.Guild, context.Channel, message.Id, context.User.Id, message.CreatedAt, parsedMessage);
-						await sentenceAccess.WriteSentenceRange(sentences);
-					}
-				}
-
+				gatherSentences = options.MessageReceivedMode;
+				gatherWordStatistics = options.MessageReceivedMode || options.WordStatisticsOnMessageReceivedMode;
 			}
+			await TryGatherSentence(message, context, gatherSentences, gatherWordStatistics);
 
 			// MARKOV SENTENCE RETORTING
 			if (message.Content.Contains(options.BotName, StringComparison.InvariantCultureIgnoreCase)                      // If the user says the bot's name
@@ -112,16 +99,21 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 
 		private async Task Client_ReactionAdded(Cacheable<IUserMessage, ulong> cachedMessage, Cacheable<IMessageChannel, ulong> originChannel, SocketReaction reaction)
 		{
-			// Don't process the reaction if it was sent by a bot
+			// Don't process the reaction if it was sent by a bot or put on a bot post
 			if (reaction.User.GetValueOrDefault().IsBot)
 				return;
 			// Don't process the reaction if the bot is not in ReactMode.
 			if (!options.ReactMode)
 				return;
-
 			// Get the message reacted to, if null, return.
-			var message = await cachedMessage.GetOrDownloadAsync();
-			if (message is null)
+			var messageParam = await cachedMessage.GetOrDownloadAsync();
+			if (messageParam is null)
+				return;
+			// Do not process if message is not a user message.
+			if (messageParam is not IUserMessage message)
+				return;
+			// Do not process if the user message is from a bot.
+			if (message.Author.IsBot)
 				return;
 
 			var context = new CommandContext(client, message);
@@ -151,16 +143,8 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 			{
 				if (writeEmojis.Contains(reaction.Emote))
 				{
-					// Parse the text of the message, write the words in it to the WordStatistic table, write the sentences into the Sentence table
-					IEnumerable<string> parsedMessage = sentenceParser.ParseIntoSentenceTexts(message.Content, message.Tags);
-					if (parsedMessage.Any())
+					if (await TryGatherSentence(message, context, true, true))
 					{
-						foreach (string parsedText in parsedMessage)
-						{
-							await wordStatisticAccess.WriteWordStatisticsFromString(parsedText);
-						}
-						IEnumerable<Sentence> sentences = await DiscordSentenceBuilder.Build(context.Guild, context.Channel, message.Id, context.User.Id, message.CreatedAt, parsedMessage);
-						await sentenceAccess.WriteSentenceRange(sentences);
 						await message.AddReactionAsync(reaction.Emote);
 					}
 					else
@@ -193,6 +177,38 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 			else
 			{
 				throw new InvalidOperationException($"Emoji with name '{n}' not found.");
+			}
+		}
+
+		private async Task<bool> TryGatherSentence(IUserMessage message, ICommandContext context, bool gatherSentences, bool gatherWordStatistics)
+		{
+			if (gatherSentences || gatherWordStatistics)
+			{
+				// Parse the text of the message, write the words in it to the WordStatistic table, write the sentences into the Sentence table
+				IEnumerable<string> parsedMessage = sentenceParser.ParseIntoSentenceTexts(message.Content, message.Tags);
+				if (parsedMessage.Any())
+				{
+					// Either way, we're writing WordStatistics to the database
+					foreach (string parsedText in parsedMessage)
+					{
+						await wordStatisticAccess.WriteWordStatisticsFromString(parsedText);
+					}
+					// Only generate and write Sentences to the database if we're in MessageReceivedMode
+					if (gatherSentences)
+					{
+						IEnumerable<Sentence> sentences = await DiscordSentenceBuilder.Build(context.Guild, context.Channel, message.Id, context.User.Id, message.CreatedAt, parsedMessage);
+						await sentenceAccess.WriteSentenceRange(sentences);
+					}
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+			else
+			{
+				return false;
 			}
 		}
 	}
