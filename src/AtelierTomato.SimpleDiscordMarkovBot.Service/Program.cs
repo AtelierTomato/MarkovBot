@@ -11,6 +11,8 @@ using Discord.WebSocket;
 
 var builder = Host.CreateApplicationBuilder(args);
 
+builder.Services.AddSystemd();
+
 if (Debugger.IsAttached)
 {
 	builder.Configuration.AddUserSecrets<Program>();
@@ -21,8 +23,6 @@ if (Microsoft.Extensions.Hosting.Systemd.SystemdHelpers.IsSystemdService())
 	builder.Logging.ClearProviders();
 	builder.Logging.AddJournal(options => options.SyslogIdentifier = builder.Configuration["SyslogIdentifier"]);
 }
-
-builder.Services.AddSystemd();
 
 builder.Services.AddOptions<DiscordBotOptions>().Bind(builder.Configuration.GetSection("DiscordBot"));
 builder.Services.AddOptions<SentenceParserOptions>().Bind(builder.Configuration.GetSection("SentenceParser"));
