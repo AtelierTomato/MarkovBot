@@ -9,59 +9,48 @@ using AtelierTomato.SimpleDiscordMarkovBot.Service;
 using Discord;
 using Discord.WebSocket;
 
-IHost host = Host.CreateDefaultBuilder(args)
-	.UseSystemd()
-	.ConfigureAppConfiguration((hostContext, builder) =>
-	{
-		// Add other providers for JSON, etc.
+var builder = Host.CreateApplicationBuilder(args);
 
-		// only use user secrets when debugging.
-		if (Debugger.IsAttached)
-		{
-			builder.AddUserSecrets<Program>();
-		}
-	})
-	.ConfigureLogging((hostContext, builder) =>
-	{
-		// if we're in fact using systemd, throw out the default console logger and only use the systemd journal
-		if (Microsoft.Extensions.Hosting.Systemd.SystemdHelpers.IsSystemdService())
-		{
-			builder.ClearProviders();
-			builder.AddJournal(options => options.SyslogIdentifier = hostContext.Configuration["SyslogIdentifier"]);
-		}
-	})
-	.ConfigureServices((hostContext, services) =>
-	{
-		services.AddHostedService<Worker>();
+if (Debugger.IsAttached)
+{
+	builder.Configuration.AddUserSecrets<Program>();
+}
 
-		var discordSocketConfig = new DiscordSocketConfig
-		{
-			// request all unprivileged but unrequest the ones that keep causing log spam
-			GatewayIntents = GatewayIntents.AllUnprivileged & ~GatewayIntents.GuildInvites & ~GatewayIntents.GuildScheduledEvents | GatewayIntents.MessageContent,
-		};
-		var client = new DiscordSocketClient(config: discordSocketConfig);
+if (Microsoft.Extensions.Hosting.Systemd.SystemdHelpers.IsSystemdService())
+{
+	builder.Logging.ClearProviders();
+	builder.Logging.AddJournal(options => options.SyslogIdentifier = builder.Configuration["SyslogIdentifier"]);
+}
 
-		services.AddSingleton(client);
-		services.AddSingleton<DiscordEventDispatcher>()
-				.AddSingleton<DiscordSentenceParser>()
-				.AddSingleton<ISentenceAccess, SqliteSentenceAccess>()
-				.AddSingleton<IWordStatisticAccess, SqliteWordStatisticAccess>()
-				.AddSingleton<MarkovChain>()
-				.AddSingleton<KeywordProvider>()
-				.AddSingleton<DiscordSentenceRenderer>();
-		services.AddOptions<DiscordBotOptions>()
-				.Bind(hostContext.Configuration.GetSection("DiscordBot"));
-		services.AddOptions<SentenceParserOptions>()
-				.Bind(hostContext.Configuration.GetSection("SentenceParser"));
-		services.AddOptions<DiscordSentenceParserOptions>()
-				.Bind(hostContext.Configuration.GetSection("DiscordSentenceParser"));
-		services.AddOptions<SqliteAccessOptions>()
-				.Bind(hostContext.Configuration.GetSection("SqliteAccess"));
-		services.AddOptions<MarkovChainOptions>()
-				.Bind(hostContext.Configuration.GetSection("MarkovChain"));
-		services.AddOptions<KeywordOptions>()
-				.Bind(hostContext.Configuration.GetSection("Keyword"));
-	})
-	.Build();
+builder.Services.AddSystemd();
+
+builder.Services.AddOptions<DiscordBotOptions>().Bind(builder.Configuration.GetSection("DiscordBot"));
+builder.Services.AddOptions<SentenceParserOptions>().Bind(builder.Configuration.GetSection("SentenceParser"));
+builder.Services.AddOptions<DiscordSentenceParserOptions>().Bind(builder.Configuration.GetSection("DiscordSentenceParser"));
+builder.Services.AddOptions<SqliteAccessOptions>().Bind(builder.Configuration.GetSection("SqliteAccess"));
+builder.Services.AddOptions<MarkovChainOptions>().Bind(builder.Configuration.GetSection("MarkovChain"));
+builder.Services.AddOptions<KeywordOptions>().Bind(builder.Configuration.GetSection("Keyword"));
+
+builder.Services.AddHostedService<Worker>();
+
+var discordSocketConfig = new DiscordSocketConfig
+{
+	// request all unprivileged but unrequest the ones that keep causing log spam
+	GatewayIntents = GatewayIntents.AllUnprivileged & ~GatewayIntents.GuildInvites & ~GatewayIntents.GuildScheduledEvents | GatewayIntents.MessageContent,
+};
+var client = new DiscordSocketClient(config: discordSocketConfig);
+
+builder.Services.AddSingleton(client);
+
+builder.Services
+	.AddSingleton<DiscordEventDispatcher>()
+	.AddSingleton<DiscordSentenceParser>()
+	.AddSingleton<ISentenceAccess, SqliteSentenceAccess>()
+	.AddSingleton<IWordStatisticAccess, SqliteWordStatisticAccess>()
+	.AddSingleton<MarkovChain>()
+	.AddSingleton<KeywordProvider>()
+	.AddSingleton<DiscordSentenceRenderer>();
+
+var host = builder.Build();
 
 await host.RunAsync();
