@@ -93,16 +93,8 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 
 			var context = new SocketCommandContext(this.client, message);
 
-			// MESSAGE GATHERING
-			bool gatherSentences = false;
-			bool gatherWordStatistics = false;
-			// If there are no values in RestrictToIds, or the user's ID is in RestrictToIds
-			if (options.RestrictToIds.Count == 0 || options.RestrictToIds.Contains(message.Author.Id))
-			{
-				gatherSentences = options.MessageReceivedMode;
-				gatherWordStatistics = options.MessageReceivedMode || options.WordStatisticsOnMessageReceivedMode;
-			}
-			await TryGatherSentence(message, context, gatherSentences, gatherWordStatistics);
+			// todo review why is the return value unused?
+			await TryGatherSentence(message, context);
 
 			// MARKOV SENTENCE RETORTING
 			if (message.Content.Contains(options.BotName, StringComparison.InvariantCultureIgnoreCase)                      // If the user says the bot's name
@@ -218,36 +210,41 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 			}
 		}
 
-		private async Task<bool> TryGatherSentence(IUserMessage message, ICommandContext context, bool gatherSentences, bool gatherWordStatistics)
+		// todo review why singular name?
+		private async Task<bool> TryGatherSentence(IUserMessage message, ICommandContext context)
 		{
-			if (gatherSentences || gatherWordStatistics)
+			// MESSAGE GATHERING
+			var authorIsAllowed = !options.RestrictToIds.Any() || !options.RestrictToIds.Contains(message.Author.Id);
+
+			bool gatherSentences = options.MessageReceivedMode && authorIsAllowed;
+			bool gatherWordStatistics = (options.MessageReceivedMode || options.WordStatisticsOnMessageReceivedMode) && authorIsAllowed;
+
+			if (!gatherSentences && !gatherWordStatistics)
 			{
-				// Parse the text of the message, write the words in it to the WordStatistic table, write the sentences into the Sentence table
-				IEnumerable<string> parsedMessage = sentenceParser.ParseIntoSentenceTexts(message.Content, message.Tags);
-				if (parsedMessage.Any())
-				{
-					// Either way, we're writing WordStatistics to the database
-					foreach (string parsedText in parsedMessage)
-					{
-						await wordStatisticAccess.WriteWordStatisticsFromString(parsedText);
-					}
-					// Only generate and write Sentences to the database if we're in MessageReceivedMode
-					if (gatherSentences)
-					{
-						IEnumerable<Sentence> sentences = await DiscordSentenceBuilder.Build(context.Guild, context.Channel, message.Id, context.User.Id, message.CreatedAt, parsedMessage);
-						await sentenceAccess.WriteSentenceRange(sentences);
-					}
-					return true;
-				}
-				else
-				{
-					return false;
-				}
-			}
-			else
-			{
+				// todo review but what does the return value mean?
 				return false;
 			}
+
+			// Parse the text of the message, write the words in it to the WordStatistic table, write the sentences into the Sentence table
+			IEnumerable<string> messageSentenceTexts = sentenceParser.ParseIntoSentenceTexts(message.Content, message.Tags);
+			if (!messageSentenceTexts.Any())
+			{
+				// todo review but why is this needed to be distinguished?
+				return false;
+			}
+
+			// Either way, we're writing WordStatistics to the database
+			foreach (string text in messageSentenceTexts)
+			{
+				await wordStatisticAccess.WriteWordStatisticsFromString(text);
+			}
+			// Only generate and write Sentences to the database if we're in MessageReceivedMode
+			if (gatherSentences)
+			{
+				IEnumerable<Sentence> sentences = await DiscordSentenceBuilder.Build(context.Guild, context.Channel, message.Id, context.User.Id, message.CreatedAt, messageSentenceTexts);
+				await sentenceAccess.WriteSentenceRange(sentences);
+			}
+			return true;
 		}
 	}
 }

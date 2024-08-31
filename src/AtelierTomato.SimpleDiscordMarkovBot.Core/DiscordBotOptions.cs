@@ -6,8 +6,10 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 	{
 		public string BotName { get; set; } = "SET THIS";
 		public List<ulong> RestrictToIds { get; set; } = [];
+		// todo review what does this mean!!
 		public bool MessageReceivedMode { get; set; } = false;
 		public bool ReactMode { get; set; } = true;
+		// todo review what does this mean!!
 		public bool WordStatisticsOnMessageReceivedMode { get; set; } = true;
 		public List<string> WriteEmojis { get; set; } = ["\uD83D\uDCDD"];
 		public List<string> WriteDiscordEmojiNames { get; set; } = [];
