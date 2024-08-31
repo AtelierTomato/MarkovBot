@@ -7,6 +7,7 @@ using Discord.Commands;
 using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using SQLitePCL;
 
 namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 {
@@ -93,8 +94,7 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 
 			var context = new SocketCommandContext(this.client, message);
 
-			// todo review why is the return value unused?
-			await ProcessForGathering(message, context);
+			_ = await ProcessForGathering(message, context);
 
 			await ProcessForRetorting(message, context);
 		}
@@ -107,12 +107,8 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 			// Don't process the reaction if the bot is not in ReactMode.
 			if (!options.ReactMode)
 				return;
-			// Get the message reacted to, if null, return.
-			var messageParam = await cachedMessage.GetOrDownloadAsync();
-			if (messageParam is null)
-				return;
-			// Do not process if message is not a user message.
-			if (messageParam is not IUserMessage message)
+			// Do not process if message is not a user message (or null).
+			if (await cachedMessage.GetOrDownloadAsync() is not IUserMessage message)
 				return;
 			// Do not process if the user message is from a bot.
 			if (message.Author.IsBot)
@@ -124,6 +120,7 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 
 			// Set up emojis to check the reaction for.
 			IEnumerable<IEmote> writeEmojis = [], deleteEmojis = [], failEmojis = [];
+			// these ifs do nothing - or rather iterating over empty shouldn't cost anything.
 			if (options.WriteDiscordEmojiNames.Count is not 0)
 			{
 				writeEmojis = options.WriteDiscordEmojiNames.SelectMany(n => ParseEmotesFromName(n, currentEmojis, otherAvailableEmojis));
@@ -140,31 +137,33 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 			}
 			failEmojis = failEmojis.Append(new Emoji(options.FailEmoji));
 
-			// If there are no values in RestrictToIds, or the user and the message author's ID is in RestrictToIds 
-			if (options.RestrictToIds.Count == 0 || (options.RestrictToIds.Contains(message.Author.Id) && options.RestrictToIds.Contains(reaction.UserId)))
+			var reactionUserIsAllowed = !options.RestrictToIds.Any() || options.RestrictToIds.Contains(reaction.UserId);
+
+			if (!reactionUserIsAllowed)
 			{
-				if (writeEmojis.Contains(reaction.Emote))
+				if (writeEmojis.Contains(reaction.Emote) || deleteEmojis.Contains(reaction.Emote))
 				{
-					if (await TryGatherSentence(message, context, true, true))
-					{
-						await message.AddReactionAsync(reaction.Emote);
-					}
-					else
-					{
-						await message.AddReactionAsync(failEmojis.First());
-					}
+					await message.AddReactionAsync(failEmojis.First());
 				}
-				else if (deleteEmojis.Contains(reaction.Emote))
+				return;
+			}
+
+			if (writeEmojis.Contains(reaction.Emote))
+			{
+				if (await ProcessForGathering(message, context))
 				{
-					// Delete all sentences made from this message from the database
-					await sentenceAccess.DeleteSentenceRange(new SentenceFilter(await DiscordObjectOIDBuilder.Build(context.Guild, context.Channel, context.Message.Id), null));
 					await message.AddReactionAsync(reaction.Emote);
 				}
+				else
+				{
+					await message.AddReactionAsync(failEmojis.First());
+				}
 			}
-			// If the user or message author's ID is not in RestrictToIds, and the emoji is a valid write or delete emoji, react back with fail emoji.
-			else if (writeEmojis.Contains(reaction.Emote) || deleteEmojis.Contains(reaction.Emote))
+			else if (deleteEmojis.Contains(reaction.Emote))
 			{
-				await message.AddReactionAsync(failEmojis.First());
+				// Delete all sentences made from this message from the database
+				await ProcessForDeleting(message, context);
+				await message.AddReactionAsync(reaction.Emote);
 			}
 		}
 
@@ -191,7 +190,6 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 
 			if (!gatherSentences && !gatherWordStatistics)
 			{
-				// todo review but what does the return value mean?
 				return false;
 			}
 
@@ -199,7 +197,6 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 			IEnumerable<string> messageSentenceTexts = sentenceParser.ParseIntoSentenceTexts(message.Content, message.Tags);
 			if (!messageSentenceTexts.Any())
 			{
-				// todo review but why is this needed to be distinguished?
 				return false;
 			}
 
@@ -208,12 +205,14 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 			{
 				await wordStatisticAccess.WriteWordStatisticsFromString(text);
 			}
+
 			// Only generate and write Sentences to the database if we're in MessageReceivedMode
 			if (gatherSentences)
 			{
 				IEnumerable<Sentence> sentences = await DiscordSentenceBuilder.Build(context.Guild, context.Channel, message.Id, context.User.Id, message.CreatedAt, messageSentenceTexts);
 				await sentenceAccess.WriteSentenceRange(sentences);
 			}
+
 			return true;
 		}
 
@@ -236,6 +235,11 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 
 				await context.Channel.SendMessageAsync(responseSentence);
 			}
+		}
+
+		private async Task ProcessForDeleting(IUserMessage message, ICommandContext context)
+		{
+				await sentenceAccess.DeleteSentenceRange(new SentenceFilter(await DiscordObjectOIDBuilder.Build(context.Guild, context.Channel, context.Message.Id), null));
 		}
 	}
 }
