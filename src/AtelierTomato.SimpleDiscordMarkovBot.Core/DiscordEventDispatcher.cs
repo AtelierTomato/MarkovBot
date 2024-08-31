@@ -94,37 +94,9 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 			var context = new SocketCommandContext(this.client, message);
 
 			// todo review why is the return value unused?
-			await TryGatherSentence(message, context);
+			await ProcessForGathering(message, context);
 
-			// MARKOV SENTENCE RETORTING
-			if (message.Content.Contains(options.BotName, StringComparison.InvariantCultureIgnoreCase)                      // If the user says the bot's name
-				||                                                                                                          // OR
-				(message.ReferencedMessage is not null && (message.ReferencedMessage.Author.Id == client.CurrentUser.Id)))  // If the user replies to the bot
-			{
-				using (context.Channel.EnterTypingState())
-				{
-					string generatedSentence =
-						sentenceRenderer.Render
-						(
-							await markovChain.Generate
-							(
-								new SentenceFilter(null, null),
-								await keywordProvider.Find(message.Content)
-							),
-							context.Guild.Emotes,
-							client.Guilds.SelectMany(g => g.Emotes)
-						);
-					if (string.IsNullOrEmpty(generatedSentence))
-					{
-						await context.Channel.SendMessageAsync(options.EmptyMarkovReturn);
-					}
-					else
-					{
-						await context.Channel.SendMessageAsync(generatedSentence);
-					}
-				}
-			}
-
+			await ProcessForRetorting(message, context);
 		}
 
 		private async Task Client_ReactionAdded(Cacheable<IUserMessage, ulong> cachedMessage, Cacheable<IMessageChannel, ulong> originChannel, SocketReaction reaction)
@@ -210,10 +182,8 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 			}
 		}
 
-		// todo review why singular name?
-		private async Task<bool> TryGatherSentence(IUserMessage message, ICommandContext context)
+		private async Task<bool> ProcessForGathering(IUserMessage message, ICommandContext context)
 		{
-			// MESSAGE GATHERING
 			var authorIsAllowed = !options.RestrictToIds.Any() || !options.RestrictToIds.Contains(message.Author.Id);
 
 			bool gatherSentences = options.MessageReceivedMode && authorIsAllowed;
@@ -245,6 +215,27 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 				await sentenceAccess.WriteSentenceRange(sentences);
 			}
 			return true;
+		}
+
+		private async Task ProcessForRetorting(IUserMessage message, ICommandContext context)
+		{
+			var isMention = message.Content.Contains(options.BotName, StringComparison.InvariantCultureIgnoreCase);
+			var isReply = message.ReferencedMessage is not null && (message.ReferencedMessage.Author.Id == client.CurrentUser.Id);
+
+			if (!isMention && !isReply)
+				return; // no reason to butt in here.
+
+			using (context.Channel.EnterTypingState())
+			{
+				var responseText = await markovChain.Generate(new SentenceFilter(null, null), await keywordProvider.Find(message.Content));
+				var responseSentence = sentenceRenderer.Render(responseText, context.Guild.Emotes, client.Guilds.SelectMany(g => g.Emotes));
+				if (string.IsNullOrWhiteSpace(responseSentence))
+				{
+					responseSentence = options.EmptyMarkovReturn;
+				}
+
+				await context.Channel.SendMessageAsync(responseSentence);
+			}
 		}
 	}
 }
