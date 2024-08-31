@@ -185,8 +185,13 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 		{
 			var authorIsAllowed = !options.RestrictToIds.Any() || !options.RestrictToIds.Contains(message.Author.Id);
 
-			bool gatherSentences = options.MessageReceivedMode && authorIsAllowed;
-			bool gatherWordStatistics = (options.MessageReceivedMode || options.WordStatisticsOnMessageReceivedMode) && authorIsAllowed;
+			if (!authorIsAllowed)
+			{
+				return false;
+			}
+
+			bool gatherSentences = options.MessageReceivedMode;
+			bool gatherWordStatistics = (options.MessageReceivedMode || options.WordStatisticsOnMessageReceivedMode);
 
 			if (!gatherSentences && !gatherWordStatistics)
 			{
@@ -201,9 +206,12 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 			}
 
 			// Either way, we're writing WordStatistics to the database
-			foreach (string text in messageSentenceTexts)
+			if (gatherWordStatistics)
 			{
-				await wordStatisticAccess.WriteWordStatisticsFromString(text);
+				foreach (string text in messageSentenceTexts)
+				{
+					await wordStatisticAccess.WriteWordStatisticsFromString(text);
+				}
 			}
 
 			// Only generate and write Sentences to the database if we're in MessageReceivedMode
