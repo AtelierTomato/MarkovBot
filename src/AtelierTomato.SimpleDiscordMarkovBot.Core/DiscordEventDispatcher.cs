@@ -120,7 +120,7 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 
 			// Set up emojis to check the reaction for.
 			IEnumerable<IEmote> writeEmojis = [], deleteEmojis = [], failEmojis = [];
-			// these ifs do nothing - or rather iterating over empty shouldn't cost anything.
+			// todo review these ifs do nothing - or rather iterating over empty shouldn't cost anything. This can be made to look less intimidating, if it still is,.make it a function.
 			if (options.WriteDiscordEmojiNames.Count is not 0)
 			{
 				writeEmojis = options.WriteDiscordEmojiNames.SelectMany(n => ParseEmotesFromName(n, currentEmojis, otherAvailableEmojis));
@@ -247,7 +247,7 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 
 		private async Task ProcessForDeleting(IUserMessage message, ICommandContext context)
 		{
-				await sentenceAccess.DeleteSentenceRange(new SentenceFilter(await DiscordObjectOIDBuilder.Build(context.Guild, context.Channel, context.Message.Id), null));
+			await sentenceAccess.DeleteSentenceRange(new SentenceFilter(await DiscordObjectOIDBuilder.Build(context.Guild, context.Channel, context.Message.Id), null));
 		}
 	}
 }
