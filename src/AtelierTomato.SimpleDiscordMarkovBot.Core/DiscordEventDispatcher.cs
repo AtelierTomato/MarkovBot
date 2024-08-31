@@ -7,7 +7,6 @@ using Discord.Commands;
 using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using SQLitePCL;
 
 namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 {
