@@ -33,10 +33,48 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 			this.keywordProvider = keywordProvider;
 			this.sentenceRenderer = sentenceRenderer;
 
+			this.client.Log += msg => Task.Run(() => this.Client_Log(msg));
 			this.client.Ready += this.Client_Ready;
 
 			this.client.MessageReceived += this.Client_MessageReceived;
 			this.client.ReactionAdded += this.Client_ReactionAdded;
+		}
+
+		private static LogLevel MapSeverity(LogSeverity logSeverity) => logSeverity switch
+		{
+			LogSeverity.Critical => LogLevel.Critical,
+			LogSeverity.Error => LogLevel.Error,
+			LogSeverity.Warning => LogLevel.Warning,
+			LogSeverity.Info => LogLevel.Information,
+			LogSeverity.Verbose => LogLevel.Debug,
+			LogSeverity.Debug => LogLevel.Trace,
+			_ => LogLevel.None,
+		};
+
+		private void Client_Log(LogMessage logMessage)
+		{
+			this.logger.Log(
+				logLevel: MapSeverity(logMessage.Severity),
+				exception: logMessage.Exception ?? null,
+				message: "Discord.NET ({Source}): {DiscordNetMessage}",
+				logMessage.Source ?? "unknown",
+				logMessage.Message ?? logMessage.Exception?.Message ?? "An error occurred."
+			);
+		}
+
+		public async Task LoginAsync(string token)
+		{
+			await this.client.LoginAsync(TokenType.Bot, token);
+		}
+
+		public async Task StartAsync()
+		{
+			await this.client.StartAsync();
+		}
+
+		public async Task StopAsync()
+		{
+			await this.client.StopAsync();
 		}
 
 		private async Task Client_Ready()
