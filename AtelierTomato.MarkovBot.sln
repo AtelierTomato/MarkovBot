@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.9.34622.214
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AtelierTomato.SimpleDiscordMarkovBot.Service", "src\AtelierTomato.SimpleDiscordMarkovBot.Service\AtelierTomato.SimpleDiscordMarkovBot.Service.csproj", "{F4009F7A-DDE6-49F9-A257-4C9FF4BEF0FC}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AtelierTomato.MarkovBot.Discord.Service", "src\AtelierTomato.MarkovBot.Discord.Service\AtelierTomato.MarkovBot.Discord.Service.csproj", "{F4009F7A-DDE6-49F9-A257-4C9FF4BEF0FC}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AtelierTomato.SimpleDiscordMarkovBot.Core", "src\AtelierTomato.SimpleDiscordMarkovBot.Core\AtelierTomato.SimpleDiscordMarkovBot.Core.csproj", "{073E37F4-0B92-4E02-85C3-261DCFFB2B97}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AtelierTomato.MarkovBot.Discord.Core", "src\AtelierTomato.MarkovBot.Discord.Core\AtelierTomato.MarkovBot.Discord.Core.csproj", "{073E37F4-0B92-4E02-85C3-261DCFFB2B97}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

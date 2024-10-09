@@ -7,8 +7,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="AtelierTomato.Markov.Service.Discord" Version="0.1.1-alpha.317" />
-    <PackageReference Include="AtelierTomato.Markov.Storage.Sqlite" Version="0.1.1-alpha.317" />
+    <PackageReference Include="AtelierTomato.Markov.Service.Discord" Version="1.0.1" />
+    <PackageReference Include="AtelierTomato.Markov.Storage.Sqlite" Version="1.0.1" />
     <PackageReference Include="Discord.Net" Version="3.15.3" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.1" />
   </ItemGroup>
