@@ -119,17 +119,10 @@ namespace AtelierTomato.SimpleDiscordMarkovBot.Core
 
 			// Set up emojis to check the reaction for.
 			IEnumerable<IEmote> writeEmojis = [], deleteEmojis = [], failEmojis = [];
-			// todo review these ifs do nothing - or rather iterating over empty shouldn't cost anything. This can be made to look less intimidating, if it still is,.make it a function.
-			if (options.WriteDiscordEmojiNames.Count is not 0)
-			{
-				writeEmojis = options.WriteDiscordEmojiNames.SelectMany(n => ParseEmotesFromName(n, currentEmojis, otherAvailableEmojis));
-			}
-			writeEmojis = writeEmojis.Concat((IEnumerable<IEmote>)options.WriteEmojis.Select(e => new Emoji(e)));
-			if (options.DeleteDiscordEmojiNames.Count is not 0)
-			{
-				deleteEmojis = options.DeleteDiscordEmojiNames.SelectMany(n => ParseEmotesFromName(n, currentEmojis, otherAvailableEmojis));
-			}
-			deleteEmojis = deleteEmojis.Concat((IEnumerable<IEmote>)options.DeleteEmojis.Select(e => new Emoji(e)));
+			writeEmojis = options.WriteDiscordEmojiNames.SelectMany(n => ParseEmotesFromName(n, currentEmojis, otherAvailableEmojis))
+				.Concat((IEnumerable<IEmote>)options.WriteEmojis.Select(e => new Emoji(e)));
+			deleteEmojis = options.DeleteDiscordEmojiNames.SelectMany(n => ParseEmotesFromName(n, currentEmojis, otherAvailableEmojis))
+				.Concat((IEnumerable<IEmote>)options.DeleteEmojis.Select(e => new Emoji(e)));
 			if (options.FailDiscordEmojiName is not "")
 			{
 				failEmojis = failEmojis.Append(ParseEmotesFromName(options.FailDiscordEmojiName, currentEmojis, otherAvailableEmojis).First());
