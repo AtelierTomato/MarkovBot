@@ -4,8 +4,8 @@ using AtelierTomato.Markov.Core.Generation;
 using AtelierTomato.Markov.Service.Discord;
 using AtelierTomato.Markov.Storage;
 using AtelierTomato.Markov.Storage.Sqlite;
-using AtelierTomato.SimpleDiscordMarkovBot.Core;
-using AtelierTomato.SimpleDiscordMarkovBot.Service;
+using AtelierTomato.MarkovBot.Discord.Core;
+using AtelierTomato.MarkovBot.Discord.Service;
 using Discord;
 using Discord.WebSocket;
 

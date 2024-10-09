@@ -1,8 +1,6 @@
-﻿using AtelierTomato.SimpleDiscordMarkovBot.Core;
-using Discord;
-using Discord.WebSocket;
+﻿using AtelierTomato.MarkovBot.Discord.Core;
 
-namespace AtelierTomato.SimpleDiscordMarkovBot.Service
+namespace AtelierTomato.MarkovBot.Discord.Service
 {
 	public class Worker : IHostedService
 	{

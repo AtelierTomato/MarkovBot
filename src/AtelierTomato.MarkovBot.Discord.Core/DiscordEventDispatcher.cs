@@ -8,7 +8,7 @@ using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace AtelierTomato.SimpleDiscordMarkovBot.Core
+namespace AtelierTomato.MarkovBot.Discord.Core
 {
 	public class DiscordEventDispatcher
 	{
