@@ -1,6 +1,8 @@
 ﻿using System.Diagnostics;
 using AtelierTomato.Markov.Core;
 using AtelierTomato.Markov.Core.Generation;
+using AtelierTomato.Markov.Model;
+using AtelierTomato.Markov.Model.ObjectOID.Parser;
 using AtelierTomato.Markov.Service.Discord;
 using AtelierTomato.Markov.Storage;
 using AtelierTomato.Markov.Storage.Sqlite;
@@ -49,7 +51,10 @@ builder.Services
 	.AddSingleton<IWordStatisticAccess, SqliteWordStatisticAccess>()
 	.AddSingleton<MarkovChain>()
 	.AddSingleton<KeywordProvider>()
-	.AddSingleton<DiscordSentenceRenderer>();
+	.AddSingleton<DiscordSentenceRenderer>()
+	.AddSingleton<DiscordObjectOIDBuilder>()
+	.AddSingleton<DiscordSentenceBuilder>()
+	.AddSingleton(serviceProvider => new MultiParser<IObjectOID>([new BookObjectOIDParser(), new SpecialObjectOIDParser(), new DiscordObjectOIDParser()]));
 
 var host = builder.Build();
 

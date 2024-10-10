@@ -1,5 +1,6 @@
 ﻿using AtelierTomato.Markov.Core.Generation;
 using AtelierTomato.Markov.Model;
+using AtelierTomato.Markov.Model.ObjectOID;
 using AtelierTomato.Markov.Service.Discord;
 using AtelierTomato.Markov.Storage;
 using Discord;
@@ -21,7 +22,9 @@ namespace AtelierTomato.MarkovBot.Discord.Core
 		private readonly MarkovChain markovChain;
 		private readonly KeywordProvider keywordProvider;
 		private readonly DiscordSentenceRenderer sentenceRenderer;
-		public DiscordEventDispatcher(ILogger<DiscordEventDispatcher> logger, DiscordSocketClient client, DiscordSentenceParser sentenceParser, IWordStatisticAccess wordStatisticAccess, ISentenceAccess sentenceAccess, IOptions<DiscordBotOptions> options, MarkovChain markovChain, KeywordProvider keywordProvider, DiscordSentenceRenderer sentenceRenderer)
+		private readonly DiscordSentenceBuilder discordSentenceBuilder;
+		private readonly DiscordObjectOIDBuilder discordObjectOIDBuilder;
+		public DiscordEventDispatcher(ILogger<DiscordEventDispatcher> logger, DiscordSocketClient client, DiscordSentenceParser sentenceParser, IWordStatisticAccess wordStatisticAccess, ISentenceAccess sentenceAccess, IOptions<DiscordBotOptions> options, MarkovChain markovChain, KeywordProvider keywordProvider, DiscordSentenceRenderer sentenceRenderer, DiscordSentenceBuilder discordSentenceBuilder, DiscordObjectOIDBuilder discordObjectOIDBuilder)
 		{
 			this.logger = logger;
 			this.client = client;
@@ -32,6 +35,8 @@ namespace AtelierTomato.MarkovBot.Discord.Core
 			this.markovChain = markovChain;
 			this.keywordProvider = keywordProvider;
 			this.sentenceRenderer = sentenceRenderer;
+			this.discordSentenceBuilder = discordSentenceBuilder;
+			this.discordObjectOIDBuilder = discordObjectOIDBuilder;
 
 			this.client.Log += msg => Task.Run(() => this.Client_Log(msg));
 			this.client.Ready += this.Client_Ready;
@@ -209,7 +214,15 @@ namespace AtelierTomato.MarkovBot.Discord.Core
 			// Only generate and write Sentences to the database if we're in MessageReceivedMode
 			if (gatherSentences)
 			{
-				IEnumerable<Sentence> sentences = await DiscordSentenceBuilder.Build(context.Guild, context.Channel, message.Id, context.User.Id, message.CreatedAt, messageSentenceTexts);
+				IEnumerable<Sentence> sentences;
+				if (context.Channel is IGuildChannel guildChannel)
+				{
+					sentences = await discordSentenceBuilder.Build(context.Guild, guildChannel, message.Id, context.User.Id, message.CreatedAt, messageSentenceTexts);
+				}
+				else
+				{
+					sentences = DiscordSentenceBuilder.Build(context.Channel, message.Id, context.User.Id, message.CreatedAt, messageSentenceTexts);
+				}
 				await sentenceAccess.WriteSentenceRange(sentences);
 			}
 
@@ -226,7 +239,7 @@ namespace AtelierTomato.MarkovBot.Discord.Core
 
 			using (context.Channel.EnterTypingState())
 			{
-				var responseText = await markovChain.Generate(new SentenceFilter(null, null), await keywordProvider.Find(message.Content));
+				var responseText = await markovChain.Generate(new SentenceFilter([], []), await keywordProvider.Find(message.Content));
 				var responseSentence = sentenceRenderer.Render(responseText, context.Guild.Emotes, client.Guilds.SelectMany(g => g.Emotes));
 				if (string.IsNullOrWhiteSpace(responseSentence))
 				{
@@ -239,7 +252,16 @@ namespace AtelierTomato.MarkovBot.Discord.Core
 
 		private async Task ProcessForDeleting(IUserMessage message, ICommandContext context)
 		{
-			await sentenceAccess.DeleteSentenceRange(new SentenceFilter(await DiscordObjectOIDBuilder.Build(context.Guild, context.Channel, context.Message.Id), null));
+			IObjectOID oid;
+			if (context.Channel is IGuildChannel guildChannel)
+			{
+				oid = (await discordObjectOIDBuilder.Build(context.Guild, guildChannel)).WithMessage(message.Id);
+			}
+			else
+			{
+				oid = DiscordObjectOID.ForMessage("discord.com", 0, 0, context.Channel.Id, 0, message.Id);
+			}
+			await sentenceAccess.DeleteSentenceRange(new SentenceFilter([oid], []), null);
 		}
 	}
 }
