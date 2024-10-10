@@ -50,6 +50,7 @@ builder.Services
 	.AddSingleton<DiscordSentenceParser>()
 	.AddSingleton<ISentenceAccess, SqliteSentenceAccess>()
 	.AddSingleton<IWordStatisticAccess, SqliteWordStatisticAccess>()
+	.AddSingleton<IAuthorPermissionAccess, SqliteAuthorPermissionAccess>()
 	.AddSingleton<MarkovChain>()
 	.AddSingleton<KeywordProvider>()
 	.AddSingleton<DiscordSentenceRenderer>()

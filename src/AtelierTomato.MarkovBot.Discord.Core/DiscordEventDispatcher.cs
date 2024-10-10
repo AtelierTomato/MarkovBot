@@ -282,7 +282,7 @@ namespace AtelierTomato.MarkovBot.Discord.Core
 			}
 			else
 			{
-				oid = DiscordObjectOID.ForMessage("discord.com", 0, 0, context.Channel.Id, 0, message.Id);
+				oid = DiscordObjectOID.ForMessage(options.DiscordInstance, 0, 0, context.Channel.Id, 0, message.Id);
 			}
 			await sentenceAccess.DeleteSentenceRange(new SentenceFilter([oid], []), null);
 		}

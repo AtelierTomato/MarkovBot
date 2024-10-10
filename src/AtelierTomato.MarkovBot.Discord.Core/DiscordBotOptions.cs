@@ -6,6 +6,7 @@ namespace AtelierTomato.MarkovBot.Discord.Core
 	{
 		public string BotName { get; set; } = "SET THIS";
 		public string BotPrefix { get; set; } = "d!";
+		public string DiscordInstance { get; set; } = "discord.com";
 		public List<ulong> RestrictToIds { get; set; } = [];
 		// todo review what does this mean!!
 		public bool MessageReceivedMode { get; set; } = false;
