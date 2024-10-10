@@ -9,6 +9,7 @@ using AtelierTomato.Markov.Storage.Sqlite;
 using AtelierTomato.MarkovBot.Discord.Core;
 using AtelierTomato.MarkovBot.Discord.Service;
 using Discord;
+using Discord.Commands;
 using Discord.WebSocket;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -54,7 +55,8 @@ builder.Services
 	.AddSingleton<DiscordSentenceRenderer>()
 	.AddSingleton<DiscordObjectOIDBuilder>()
 	.AddSingleton<DiscordSentenceBuilder>()
-	.AddSingleton(serviceProvider => new MultiParser<IObjectOID>([new BookObjectOIDParser(), new SpecialObjectOIDParser(), new DiscordObjectOIDParser()]));
+	.AddSingleton(_ => new MultiParser<IObjectOID>([new BookObjectOIDParser(), new SpecialObjectOIDParser(), new DiscordObjectOIDParser()]))
+	.AddSingleton(_ => new CommandService(new CommandServiceConfig { DefaultRunMode = RunMode.Async }));
 
 var host = builder.Build();
 

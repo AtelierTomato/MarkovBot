@@ -1,4 +1,5 @@
-﻿using AtelierTomato.Markov.Core.Generation;
+﻿using System.Reflection;
+using AtelierTomato.Markov.Core.Generation;
 using AtelierTomato.Markov.Model;
 using AtelierTomato.Markov.Model.ObjectOID;
 using AtelierTomato.Markov.Service.Discord;
@@ -24,7 +25,9 @@ namespace AtelierTomato.MarkovBot.Discord.Core
 		private readonly DiscordSentenceRenderer sentenceRenderer;
 		private readonly DiscordSentenceBuilder discordSentenceBuilder;
 		private readonly DiscordObjectOIDBuilder discordObjectOIDBuilder;
-		public DiscordEventDispatcher(ILogger<DiscordEventDispatcher> logger, DiscordSocketClient client, DiscordSentenceParser sentenceParser, IWordStatisticAccess wordStatisticAccess, ISentenceAccess sentenceAccess, IOptions<DiscordBotOptions> options, MarkovChain markovChain, KeywordProvider keywordProvider, DiscordSentenceRenderer sentenceRenderer, DiscordSentenceBuilder discordSentenceBuilder, DiscordObjectOIDBuilder discordObjectOIDBuilder)
+		private readonly CommandService commandService;
+		private readonly IServiceProvider serviceProvider;
+		public DiscordEventDispatcher(ILogger<DiscordEventDispatcher> logger, DiscordSocketClient client, DiscordSentenceParser sentenceParser, IWordStatisticAccess wordStatisticAccess, ISentenceAccess sentenceAccess, IOptions<DiscordBotOptions> options, MarkovChain markovChain, KeywordProvider keywordProvider, DiscordSentenceRenderer sentenceRenderer, DiscordSentenceBuilder discordSentenceBuilder, DiscordObjectOIDBuilder discordObjectOIDBuilder, CommandService commandService, IServiceProvider serviceProvider)
 		{
 			this.logger = logger;
 			this.client = client;
@@ -37,12 +40,21 @@ namespace AtelierTomato.MarkovBot.Discord.Core
 			this.sentenceRenderer = sentenceRenderer;
 			this.discordSentenceBuilder = discordSentenceBuilder;
 			this.discordObjectOIDBuilder = discordObjectOIDBuilder;
+			this.commandService = commandService;
+			this.serviceProvider = serviceProvider;
 
 			this.client.Log += msg => Task.Run(() => this.Client_Log(msg));
 			this.client.Ready += this.Client_Ready;
 
 			this.client.MessageReceived += this.Client_MessageReceived;
 			this.client.ReactionAdded += this.Client_ReactionAdded;
+
+			commandService.CommandExecuted += (commandInfo, commandContext, result) => Task.Run(() => this.LogCommandServiceCommandExecuted(commandInfo, commandContext, result));
+			commandService.AddModulesAsync(assembly: Assembly.GetAssembly(typeof(DiscordEventDispatcher)), services: serviceProvider);
+		}
+		private void LogCommandServiceCommandExecuted(Optional<CommandInfo> commandInfo, ICommandContext commandContext, IResult result)
+		{
+			// todo do more detailed logging here if necessary.
 		}
 
 		private static LogLevel MapSeverity(LogSeverity logSeverity) => logSeverity switch
@@ -97,6 +109,17 @@ namespace AtelierTomato.MarkovBot.Discord.Core
 				return;
 
 			var context = new SocketCommandContext(this.client, message);
+
+			// Create a number to track where the prefix ends and the command begins
+			int argPos = 0;
+			var prefixDetected = message.HasStringPrefix(options.BotPrefix, ref argPos) || message.HasMentionPrefix(client.CurrentUser, ref argPos);
+
+			if (prefixDetected)
+			{
+				// Execute the command with the command context we just created, along with the service provider for precondition checks.
+				using (context.Channel.EnterTypingState()) _ = await commandService.ExecuteAsync(context: context, argPos: argPos, services: serviceProvider);
+
+			}
 
 			_ = await ProcessForGathering(message, context);
 
